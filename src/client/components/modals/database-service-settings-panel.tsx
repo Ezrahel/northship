@@ -1,0 +1,102 @@
+import { useEffect, useState } from "react";
+import { api } from "../../api";
+import { FieldLabel, FormInput } from "../ui/primitives";
+import { Checkbox } from "../ui/checkbox";
+import { generateDatabaseHostname } from "./database-hostname";
+
+export type DatabaseSettingsState = {
+  name: string;
+  internalPort: number;
+  databasePublicEnabled: boolean;
+  databasePublicHostname: string;
+  postgresLogicalReplicationEnabled: boolean;
+};
+
+type DatabaseServiceSettingsPanelProps = {
+  settings: DatabaseSettingsState;
+  hostPort?: number;
+  supportsLogicalReplication?: boolean;
+  onChange: (settings: Partial<DatabaseSettingsState>) => void;
+};
+
+export function DatabaseServiceSettingsPanel({ settings, hostPort, supportsLogicalReplication = false, onChange }: DatabaseServiceSettingsPanelProps) {
+  const [rootDomain, setRootDomain] = useState("");
+  const generatedHostname = generateDatabaseHostname(settings.name, rootDomain);
+
+  useEffect(() => {
+    let cancelled = false;
+    void api.systemSettings()
+      .then((result) => {
+        if (!cancelled) setRootDomain(result.settings.rootDomain);
+      })
+      .catch(() => {
+        if (!cancelled) setRootDomain("");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!generatedHostname || settings.databasePublicHostname === generatedHostname) return;
+    onChange({ databasePublicHostname: generatedHostname });
+  }, [generatedHostname, settings.databasePublicHostname, onChange]);
+
+  return (
+    <>
+      <div>
+        <FieldLabel>Service name</FieldLabel>
+        <FormInput name="name" value={settings.name} onChange={(event) => onChange({ name: event.target.value })} />
+      </div>
+      <div>
+        <FieldLabel>Database port (Internal)</FieldLabel>
+        <FormInput
+          name="internalPort"
+          type="number"
+          value={settings.internalPort}
+          onChange={(event) => onChange({ internalPort: Number(event.target.value) })}
+        />
+      </div>
+      <input type="hidden" name="databasePublicHostname" value={settings.databasePublicHostname || generatedHostname} />
+      <div className="xl:col-span-2">
+        <div className="grid gap-4 border border-zinc-800 bg-zinc-950/35 p-4 md:grid-cols-2">
+          <div>
+            <FieldLabel>Public hostname</FieldLabel>
+            <div className="flex h-11 min-w-0 items-center border border-zinc-800 bg-zinc-950 px-3 font-mono text-xs text-zinc-100">
+              <span className="truncate">{settings.databasePublicHostname || generatedHostname || "Set root domain first"}</span>
+            </div>
+          </div>
+          <div>
+            <FieldLabel>Connection target</FieldLabel>
+            <div className="flex h-11 min-w-0 items-center border border-zinc-800 bg-zinc-950 px-3 font-mono text-xs text-[#7fe3dd]">
+              <span className="truncate">
+                {settings.databasePublicHostname || generatedHostname
+                  ? `${settings.databasePublicHostname || generatedHostname}:${hostPort ?? "<port>"}`
+                  : `db.example.com:${hostPort ?? "<port>"}`}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+      {supportsLogicalReplication ? (
+        <div className="xl:col-span-2">
+          <div className="border border-zinc-800 bg-zinc-950/35 p-4">
+            <Checkbox
+              checked={settings.postgresLogicalReplicationEnabled}
+              label="Logical replication enabled"
+              onChange={(checked) => onChange({ postgresLogicalReplicationEnabled: checked })}
+              className="items-start"
+            >
+              <span className="grid gap-1">
+                <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-200">Logical replication enabled</span>
+                <span className="text-sm leading-6 text-zinc-500">
+                  Postgres deploys with <code className="font-mono text-zinc-300">wal_level=logical</code>, <code className="font-mono text-zinc-300">max_replication_slots=10</code>, and <code className="font-mono text-zinc-300">max_wal_senders=10</code>.
+                </span>
+              </span>
+            </Checkbox>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}

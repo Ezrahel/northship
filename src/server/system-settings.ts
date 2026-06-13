@@ -1,0 +1,525 @@
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
+import {
+  aiProviderCatalog,
+  aiProviderIds,
+  aiProviderModels,
+  aiProviderName,
+  defaultAiModel,
+  isAiProviderId,
+  isAiProviderModel,
+  type AiProviderId,
+  type AiProviderModel
+} from "../shared/ai-providers.js";
+import { config } from "./config.js";
+import { decryptSecret, encryptSecret } from "./secret-crypto.js";
+
+export const databaseBackupScheduleTriggers = ["daily", "weekly", "monthly"] as const;
+export type DatabaseBackupScheduleTrigger = (typeof databaseBackupScheduleTriggers)[number];
+export type DatabaseBackupScheduleDefaults = Record<DatabaseBackupScheduleTrigger, boolean>;
+
+const disabledDatabaseBackupScheduleDefaults: DatabaseBackupScheduleDefaults = {
+  daily: false,
+  weekly: false,
+  monthly: false
+};
+
+export interface SystemSettings {
+  rootDomain: string;
+  controlPlaneHostname: string;
+  deploymentConcurrency: number;
+  databaseBackupScheduleDefaults: DatabaseBackupScheduleDefaults;
+  databaseBackupsAutomaticEnabled?: boolean;
+  r2?: R2Settings | null;
+  dns?: DnsSettings | null;
+  ai?: AiSettings | null;
+}
+
+export interface R2Settings {
+  accountId: string;
+  bucket: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  endpoint: string;
+  connectedAt: string;
+  updatedAt: string;
+}
+
+export type PublicR2Settings = {
+  connected: boolean;
+  accountId: string;
+  bucket: string;
+  endpoint: string;
+  accessKeyIdSuffix: string;
+  connectedAt: string | null;
+  updatedAt: string | null;
+};
+
+export type DnsProviderId = "cloudflare" | "namecheap" | "spaceship";
+
+export interface CloudflareDnsSettings {
+  provider: "cloudflare";
+  apiToken: string;
+  accountEmail: string;
+  zoneId: string;
+  connectedAt: string;
+  updatedAt: string;
+}
+
+export interface NamecheapDnsSettings {
+  provider: "namecheap";
+  apiUser: string;
+  apiKey: string;
+  clientIp: string;
+  connectedAt: string;
+  updatedAt: string;
+}
+
+export interface SpaceshipDnsSettings {
+  provider: "spaceship";
+  apiKey: string;
+  apiSecret: string;
+  connectedAt: string;
+  updatedAt: string;
+}
+
+export type DnsProviderSettings = CloudflareDnsSettings | NamecheapDnsSettings | SpaceshipDnsSettings;
+
+export type DnsSettings = Partial<{
+  cloudflare: CloudflareDnsSettings;
+  namecheap: NamecheapDnsSettings;
+  spaceship: SpaceshipDnsSettings;
+}>;
+
+export type PublicDnsProviderSettings = {
+  id: DnsProviderId;
+  name: string;
+  connected: boolean;
+  values: Record<string, string>;
+  secretSuffixes: Record<string, string>;
+  keySuffix: string;
+  connectedAt: string | null;
+  updatedAt: string | null;
+};
+
+export type PublicDnsSettings = {
+  providers: PublicDnsProviderSettings[];
+};
+
+export interface AiProviderSettings {
+  provider: AiProviderId;
+  apiKey: string;
+  selectedModel: string;
+  connectedAt: string;
+  updatedAt: string;
+}
+
+export type AiSettings = {
+  defaultProvider: AiProviderId | "";
+  defaultModel: string;
+  providers: Partial<Record<AiProviderId, AiProviderSettings>>;
+};
+
+export type PublicAiProviderSettings = {
+  id: AiProviderId;
+  name: string;
+  connected: boolean;
+  keySuffix: string;
+  selectedModel: string;
+  models: AiProviderModel[];
+  connectedAt: string | null;
+  updatedAt: string | null;
+};
+
+export type PublicAiSettings = {
+  defaultProvider: AiProviderId | null;
+  defaultModel: string;
+  providers: PublicAiProviderSettings[];
+};
+
+const settingsPath = resolve(config.dataDir, "system-settings.json");
+export const defaultDeploymentConcurrency = 3;
+export const maxDeploymentConcurrency = 10;
+
+export function normalizeDeploymentConcurrency(value: unknown) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) return defaultDeploymentConcurrency;
+  return Math.min(maxDeploymentConcurrency, Math.max(1, parsed));
+}
+
+export function backupSchedulesEnabled(scheduleDefaults: DatabaseBackupScheduleDefaults) {
+  return databaseBackupScheduleTriggers.some((trigger) => scheduleDefaults[trigger]);
+}
+
+function scheduleDefaultsFromAutomatic(enabled: boolean): DatabaseBackupScheduleDefaults {
+  return {
+    daily: enabled,
+    weekly: enabled,
+    monthly: enabled
+  };
+}
+
+export function normalizeDatabaseBackupScheduleDefaults(value: unknown, legacyAutomaticEnabled = false): DatabaseBackupScheduleDefaults {
+  if (!value || typeof value !== "object") {
+    return scheduleDefaultsFromAutomatic(legacyAutomaticEnabled);
+  }
+
+  const input = value as Partial<Record<DatabaseBackupScheduleTrigger, unknown>>;
+  return {
+    daily: typeof input.daily === "boolean" ? input.daily : disabledDatabaseBackupScheduleDefaults.daily,
+    weekly: typeof input.weekly === "boolean" ? input.weekly : disabledDatabaseBackupScheduleDefaults.weekly,
+    monthly: typeof input.monthly === "boolean" ? input.monthly : disabledDatabaseBackupScheduleDefaults.monthly
+  };
+}
+
+export function decryptR2Settings(r2: SystemSettings["r2"]): SystemSettings["r2"] {
+  if (!r2) return null;
+  try {
+    return {
+      ...r2,
+      secretAccessKey: decryptSecret(r2.secretAccessKey)
+    };
+  } catch (error) {
+    console.error("Failed to decrypt R2 settings:", error);
+    return {
+      ...r2,
+      secretAccessKey: ""
+    };
+  }
+}
+
+export function encryptR2Settings(r2: SystemSettings["r2"]): SystemSettings["r2"] {
+  return r2
+    ? {
+        ...r2,
+        secretAccessKey: encryptSecret(r2.secretAccessKey)
+      }
+    : null;
+}
+
+function decryptSecretField(value: string, label: string) {
+  try {
+    return decryptSecret(value);
+  } catch (error) {
+    console.error(`Failed to decrypt ${label}:`, error);
+    return "";
+  }
+}
+
+function decryptDnsSettings(dns: SystemSettings["dns"]): SystemSettings["dns"] {
+  if (!dns) return null;
+  const next: DnsSettings = {};
+
+  if (dns.cloudflare) {
+    next.cloudflare = {
+      provider: "cloudflare",
+      apiToken: decryptSecretField(dns.cloudflare.apiToken, "Cloudflare DNS API token"),
+      accountEmail: dns.cloudflare.accountEmail ?? "",
+      zoneId: dns.cloudflare.zoneId ?? "",
+      connectedAt: dns.cloudflare.connectedAt,
+      updatedAt: dns.cloudflare.updatedAt
+    };
+  }
+
+  if (dns.namecheap) {
+    next.namecheap = {
+      provider: "namecheap",
+      apiUser: dns.namecheap.apiUser ?? "",
+      apiKey: decryptSecretField(dns.namecheap.apiKey, "Namecheap DNS API key"),
+      clientIp: dns.namecheap.clientIp ?? "",
+      connectedAt: dns.namecheap.connectedAt,
+      updatedAt: dns.namecheap.updatedAt
+    };
+  }
+
+  if (dns.spaceship) {
+    next.spaceship = {
+      provider: "spaceship",
+      apiKey: decryptSecretField(dns.spaceship.apiKey, "Spaceship DNS API key"),
+      apiSecret: decryptSecretField(dns.spaceship.apiSecret, "Spaceship DNS API secret"),
+      connectedAt: dns.spaceship.connectedAt,
+      updatedAt: dns.spaceship.updatedAt
+    };
+  }
+
+  return Object.keys(next).length > 0 ? next : null;
+}
+
+export function normalizeAiSettings(ai: SystemSettings["ai"]): AiSettings | null {
+  if (!ai) return null;
+
+  const providers: AiSettings["providers"] = {};
+  const legacyAi = ai as Partial<AiSettings> & { activeProvider?: unknown };
+  for (const providerId of aiProviderIds) {
+    const provider = ai.providers?.[providerId];
+    if (!provider?.apiKey) continue;
+    providers[providerId] = {
+      provider: providerId,
+      apiKey: String(provider.apiKey),
+      selectedModel: isAiProviderModel(providerId, provider.selectedModel) ? provider.selectedModel : defaultAiModel(providerId),
+      connectedAt: provider.connectedAt || provider.updatedAt || "",
+      updatedAt: provider.updatedAt || provider.connectedAt || ""
+    };
+  }
+
+  const defaultProviderCandidate = ai.defaultProvider || legacyAi.activeProvider || "";
+  const defaultProvider = isAiProviderId(defaultProviderCandidate) && providers[defaultProviderCandidate] ? defaultProviderCandidate : "";
+  const fallbackDefaultModel = defaultProvider ? providers[defaultProvider]?.selectedModel ?? defaultAiModel(defaultProvider) : "";
+  const defaultModel = defaultProvider && isAiProviderModel(defaultProvider, ai.defaultModel) ? ai.defaultModel : fallbackDefaultModel;
+
+  return Object.keys(providers).length > 0 ? { defaultProvider, defaultModel, providers } : null;
+}
+
+export function decryptAiSettings(ai: SystemSettings["ai"]): AiSettings | null {
+  const normalized = normalizeAiSettings(ai);
+  if (!normalized) return null;
+
+  const providers: AiSettings["providers"] = {};
+  for (const providerId of aiProviderIds) {
+    const provider = normalized.providers[providerId];
+    if (!provider) continue;
+    providers[providerId] = {
+      ...provider,
+      apiKey: decryptSecretField(provider.apiKey, `${aiProviderName(providerId)} API key`)
+    };
+  }
+
+  return { ...normalized, providers };
+}
+
+function encryptDnsSettings(dns: SystemSettings["dns"]): SystemSettings["dns"] {
+  if (!dns) return null;
+  const next: DnsSettings = {};
+
+  if (dns.cloudflare) {
+    next.cloudflare = {
+      ...dns.cloudflare,
+      apiToken: encryptSecret(dns.cloudflare.apiToken)
+    };
+  }
+
+  if (dns.namecheap) {
+    next.namecheap = {
+      ...dns.namecheap,
+      apiKey: encryptSecret(dns.namecheap.apiKey)
+    };
+  }
+
+  if (dns.spaceship) {
+    next.spaceship = {
+      ...dns.spaceship,
+      apiKey: encryptSecret(dns.spaceship.apiKey),
+      apiSecret: encryptSecret(dns.spaceship.apiSecret)
+    };
+  }
+
+  return Object.keys(next).length > 0 ? next : null;
+}
+
+export function encryptAiSettings(ai: SystemSettings["ai"]): AiSettings | null {
+  const normalized = normalizeAiSettings(ai);
+  if (!normalized) return null;
+
+  const providers: AiSettings["providers"] = {};
+  for (const providerId of aiProviderIds) {
+    const provider = normalized.providers[providerId];
+    if (!provider) continue;
+    providers[providerId] = {
+      ...provider,
+      apiKey: encryptSecret(provider.apiKey)
+    };
+  }
+
+  return { ...normalized, providers };
+}
+
+function serializeSystemSettings(settings: SystemSettings): SystemSettings {
+  const deploymentConcurrency = normalizeDeploymentConcurrency(settings.deploymentConcurrency);
+  const databaseBackupScheduleDefaults = normalizeDatabaseBackupScheduleDefaults(
+    settings.databaseBackupScheduleDefaults,
+    settings.databaseBackupsAutomaticEnabled === true
+  );
+  return {
+    ...settings,
+    deploymentConcurrency,
+    databaseBackupScheduleDefaults,
+    databaseBackupsAutomaticEnabled: backupSchedulesEnabled(databaseBackupScheduleDefaults),
+    r2: encryptR2Settings(settings.r2 ?? null),
+    dns: encryptDnsSettings(settings.dns ?? null),
+    ai: encryptAiSettings(settings.ai ?? null)
+  };
+}
+
+export function getSystemSettings(): SystemSettings {
+  try {
+    if (existsSync(settingsPath)) {
+      const data = readFileSync(settingsPath, "utf8");
+      const parsed = JSON.parse(data) as Partial<SystemSettings>;
+      const databaseBackupScheduleDefaults = normalizeDatabaseBackupScheduleDefaults(
+        parsed.databaseBackupScheduleDefaults,
+        parsed.databaseBackupsAutomaticEnabled === true
+      );
+      return {
+        rootDomain: parsed.rootDomain ?? "",
+        controlPlaneHostname: parsed.controlPlaneHostname ?? "",
+        deploymentConcurrency: normalizeDeploymentConcurrency(parsed.deploymentConcurrency),
+        databaseBackupScheduleDefaults,
+        databaseBackupsAutomaticEnabled: backupSchedulesEnabled(databaseBackupScheduleDefaults),
+        r2: decryptR2Settings(parsed.r2 ?? null),
+        dns: decryptDnsSettings(parsed.dns ?? null),
+        ai: decryptAiSettings(parsed.ai ?? null)
+      };
+    }
+  } catch (error) {
+    console.error("Failed to read system settings:", error);
+  }
+  return {
+    rootDomain: "",
+    controlPlaneHostname: "",
+    deploymentConcurrency: defaultDeploymentConcurrency,
+    databaseBackupScheduleDefaults: scheduleDefaultsFromAutomatic(false),
+    databaseBackupsAutomaticEnabled: false,
+    r2: null,
+    dns: null,
+    ai: null
+  };
+}
+
+export function deploymentConcurrency(settings = getSystemSettings()) {
+  return normalizeDeploymentConcurrency(settings.deploymentConcurrency);
+}
+
+export function saveSystemSettings(settings: SystemSettings): void {
+  try {
+    writeFileSync(settingsPath, JSON.stringify(serializeSystemSettings(settings), null, 2), "utf8");
+  } catch (error) {
+    console.error("Failed to save system settings:", error);
+  }
+}
+
+function publicUrlHostname() {
+  try {
+    const hostname = new URL(process.env.PUBLIC_URL ?? config.publicUrl).hostname.toLowerCase();
+    if (!hostname || hostname === "localhost" || hostname === "::1") return "";
+    if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname)) return "";
+    return hostname;
+  } catch {
+    return "";
+  }
+}
+
+export function configuredControlPlaneHostname(settings = getSystemSettings()) {
+  const envHostname = String(process.env.CONTROL_PLANE_HOSTNAME ?? config.controlPlaneHostname ?? "").trim().toLowerCase();
+  return envHostname || String(settings.controlPlaneHostname ?? "").trim().toLowerCase() || publicUrlHostname();
+}
+
+export function publicR2Settings(settings = getSystemSettings()): PublicR2Settings {
+  const r2 = settings.r2;
+  if (!r2) {
+    return {
+      connected: false,
+      accountId: "",
+      bucket: "",
+      endpoint: "",
+      accessKeyIdSuffix: "",
+      connectedAt: null,
+      updatedAt: null
+    };
+  }
+
+  return {
+    connected: true,
+    accountId: r2.accountId,
+    bucket: r2.bucket,
+    endpoint: r2.endpoint,
+    accessKeyIdSuffix: r2.accessKeyId.slice(-6),
+    connectedAt: r2.connectedAt,
+    updatedAt: r2.updatedAt
+  };
+}
+
+function secretSuffix(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  return trimmed.length <= 4 ? trimmed : trimmed.slice(-4);
+}
+
+export function publicDnsSettings(settings = getSystemSettings()): PublicDnsSettings {
+  const dns = settings.dns ?? {};
+
+  return {
+    providers: [
+      {
+        id: "cloudflare",
+        name: "Cloudflare",
+        connected: Boolean(dns.cloudflare?.apiToken),
+        values: {
+          accountEmail: dns.cloudflare?.accountEmail ?? "",
+          zoneId: dns.cloudflare?.zoneId ?? ""
+        },
+        secretSuffixes: {
+          apiToken: secretSuffix(dns.cloudflare?.apiToken ?? "")
+        },
+        keySuffix: secretSuffix(dns.cloudflare?.apiToken ?? ""),
+        connectedAt: dns.cloudflare?.connectedAt ?? null,
+        updatedAt: dns.cloudflare?.updatedAt ?? null
+      },
+      {
+        id: "namecheap",
+        name: "Namecheap",
+        connected: Boolean(dns.namecheap?.apiUser && dns.namecheap.apiKey),
+        values: {
+          apiUser: dns.namecheap?.apiUser ?? "",
+          clientIp: dns.namecheap?.clientIp ?? ""
+        },
+        secretSuffixes: {
+          apiKey: secretSuffix(dns.namecheap?.apiKey ?? "")
+        },
+        keySuffix: secretSuffix(dns.namecheap?.apiKey ?? ""),
+        connectedAt: dns.namecheap?.connectedAt ?? null,
+        updatedAt: dns.namecheap?.updatedAt ?? null
+      },
+      {
+        id: "spaceship",
+        name: "Spaceship",
+        connected: Boolean(dns.spaceship?.apiKey && dns.spaceship.apiSecret),
+        values: {},
+        secretSuffixes: {
+          apiKey: secretSuffix(dns.spaceship?.apiKey ?? ""),
+          apiSecret: secretSuffix(dns.spaceship?.apiSecret ?? "")
+        },
+        keySuffix: secretSuffix(dns.spaceship?.apiKey ?? ""),
+        connectedAt: dns.spaceship?.connectedAt ?? null,
+        updatedAt: dns.spaceship?.updatedAt ?? null
+      }
+    ]
+  };
+}
+
+export function publicAiSettingsForAi(aiSettings: SystemSettings["ai"]): PublicAiSettings {
+  const ai = normalizeAiSettings(aiSettings ?? null);
+  const defaultProvider = ai?.defaultProvider && ai.providers[ai.defaultProvider] ? ai.defaultProvider : null;
+
+  return {
+    defaultProvider,
+    defaultModel: defaultProvider ? ai?.defaultModel || defaultAiModel(defaultProvider) : "",
+    providers: aiProviderCatalog.map((catalogProvider) => {
+      const providerId = catalogProvider.id;
+      const savedProvider = ai?.providers[providerId];
+      return {
+        id: providerId,
+        name: catalogProvider.name,
+        connected: Boolean(savedProvider?.apiKey),
+        keySuffix: secretSuffix(savedProvider?.apiKey ?? ""),
+        selectedModel: savedProvider?.selectedModel ?? defaultAiModel(providerId),
+        models: aiProviderModels(providerId),
+        connectedAt: savedProvider?.connectedAt ?? null,
+        updatedAt: savedProvider?.updatedAt ?? null
+      };
+    })
+  };
+}
+
+export function publicAiSettings(settings = getSystemSettings()): PublicAiSettings {
+  return publicAiSettingsForAi(settings.ai ?? null);
+}

@@ -1,0 +1,25 @@
+---
+import BaseLayout from "../layouts/base-layout.astro";
+import ControlPlaneSection from "../components/control-plane-section.astro";
+import DeployAnythingSection from "../components/deploy-anything-section.astro";
+import FreeToUseSection from "../components/free-to-use-section.astro";
+import GithubStarSection from "../components/github-star-section.astro";
+import HeroSection from "../components/hero-section.astro";
+import RailwayImportSection from "../components/railway-import-section.astro";
+import SiteFooter from "../components/site-footer.astro";
+---
+
+<BaseLayout
+  title="Northship - Self-hosted deployment control plane"
+  description="Northship turns a server into a deployment control plane for apps, databases, domains, logs, and backups."
+>
+  <main>
+    <HeroSection />
+    <ControlPlaneSection />
+    <DeployAnythingSection />
+    <RailwayImportSection />
+    <FreeToUseSection />
+    <GithubStarSection />
+  </main>
+  <SiteFooter />
+</BaseLayout>

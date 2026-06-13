@@ -1,0 +1,43 @@
+---
+import "../styles/global.css";
+import PosthogTracking from "../components/posthog-tracking.astro";
+import AnalyticsClickTracking from "../components/analytics-click-tracking.astro";
+
+interface Props {
+  title?: string;
+  description?: string;
+  image?: string;
+}
+
+const {
+  title = "Northship - Self-hosted deployments",
+  description = "Northship is a self-hosted deployment control plane for apps, databases, domains, logs, and backups.",
+  image = "https://cdn.byteship.cloud/f/p_vId3Rhgf/og.png",
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content={description} />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content={image} />
+    <meta property="og:image:alt" content="Northship website preview" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={image} />
+    <meta name="twitter:image:alt" content="Northship website preview" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <PosthogTracking />
+    <title>{title}</title>
+  </head>
+  <body>
+    <slot />
+    <AnalyticsClickTracking />
+  </body>
+</html>
