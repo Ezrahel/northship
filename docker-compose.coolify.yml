@@ -1,0 +1,30 @@
+services:
+  northship:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "4310"
+      HOST: "0.0.0.0"
+      DATA_DIR: /data
+      BUILDKIT_HOST: tcp://buildkit:1234
+      CADDY_RELOAD_CMD: "true"
+      PUBLIC_URL: ${PUBLIC_URL}
+      NORTHSHIP_SECRET_KEY: ${NORTHSHIP_SECRET_KEY}
+      NORTHSHIP_RUNTIME_NETWORK: northship-runtime
+    volumes:
+      - northship_data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - buildkit
+
+  buildkit:
+    image: moby/buildkit:latest
+    restart: unless-stopped
+    privileged: true
+    command: ["--addr", "tcp://0.0.0.0:1234"]
+
+volumes:
+  northship_data:
