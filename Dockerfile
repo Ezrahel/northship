@@ -51,8 +51,6 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/src/server/assets ./src/server/assets
 
 RUN mkdir -p /data
-
-VOLUME ["/data"]
 EXPOSE 4310
 
 CMD ["node", "dist/server/index.js"]
