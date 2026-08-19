@@ -34,7 +34,7 @@ export function RootDomainStep({
       description={
         <>
           Set the exact dashboard hostname, then enter the generated service domain as a wildcard, e.g.{" "}
-          <span className="text-[#7fe3dd]">*.pilot.northship.dev</span>. You can leave either blank and configure it later.
+          <span className="text-[#7fe3dd]">*.pilot.northship.xyz</span>. You can leave either blank and configure it later.
         </>
       }
     >
@@ -43,12 +43,12 @@ export function RootDomainStep({
           label="Dashboard domain"
           value={form.controlPlaneHostname}
           onChange={(controlPlaneHostname) => update({ controlPlaneHostname })}
-          placeholder="pilot.northship.dev"
+          placeholder="pilot.northship.xyz"
         />
         <div>
-          <TextField label="Wildcard root domain" value={form.rootDomain} onChange={(rootDomain) => update({ rootDomain })} placeholder="*.pilot.northship.dev" />
+          <TextField label="Wildcard root domain" value={form.rootDomain} onChange={(rootDomain) => update({ rootDomain })} placeholder="*.pilot.northship.xyz" />
           {form.rootDomain.trim() && !isWildcardRootDomain(form.rootDomain) ? (
-            <p className="mt-2 font-mono text-[10px] leading-relaxed text-rose-300">Include the wildcard prefix, e.g. *.pilot.northship.dev.</p>
+            <p className="mt-2 font-mono text-[10px] leading-relaxed text-rose-300">Include the wildcard prefix, e.g. *.pilot.northship.xyz.</p>
           ) : (
             <p className="mt-2 font-mono text-[10px] leading-relaxed text-zinc-500">Northship stores the base domain, but asks for the wildcard so DNS setup is explicit.</p>
           )}

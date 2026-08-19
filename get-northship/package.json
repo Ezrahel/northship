@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Tiny installer endpoint for curl -fsSL https://get.northship.dev | sh.",
+  "description": "Tiny installer endpoint for curl -fsSL https://get.northship.xyz | sh.",
   "scripts": {
     "start": "node server.js"
   },

@@ -167,10 +167,10 @@ The Docker socket (`/var/run/docker.sock:/var/run/docker.sock`) is declared in t
 ### 3.5 Configure Domain
 
 1. In Coolify, go to the **Domains** tab of your resource
-2. Add your domain, e.g. `pilot.northship.dev`
+2. Add your domain, e.g. `pilot.northship.xyz`
 3. Make sure your DNS has an **A record** pointing to the Coolify VPS IP:
    ```
-   A    pilot.northship.dev    YOUR_VPS_IP
+   A    pilot.northship.xyz    YOUR_VPS_IP
    ```
 4. Coolify will handle SSL automatically via Let's Encrypt
 
@@ -187,12 +187,12 @@ The Docker socket (`/var/run/docker.sock:/var/run/docker.sock`) is declared in t
 
 ## 4. Run Onboarding
 
-1. Open your `PUBLIC_URL` in the browser (e.g. `https://pilot.northship.dev`)
+1. Open your `PUBLIC_URL` in the browser (e.g. `https://pilot.northship.xyz`)
 2. You will be taken to the **onboarding wizard** — complete each step:
 
    - **Create owner account** — set your username and password
-   - **Dashboard domain** — enter `pilot.northship.dev` (or your domain)
-   - **Wildcard root domain** — enter `*.pilot.northship.dev` if you want auto-generated service URLs
+   - **Dashboard domain** — enter `pilot.northship.xyz` (or your domain)
+   - **Wildcard root domain** — enter `*.pilot.northship.xyz` if you want auto-generated service URLs
    - **BuildKit** — should auto-detect as `tcp://buildkit:1234` *(already set via env)*
    - **GitHub** — skip for now, or paste your GitHub App credentials
    - **Runtime network** — leave as `northship-runtime`
@@ -222,7 +222,7 @@ The `website/` directory is a separate **Astro** static site.
    | **Build command** | `npm run build` |
    | **Publish directory** | `dist` |
 
-5. Add a domain (e.g. `northship.dev` or `www.northship.dev`)
+5. Add a domain (e.g. `northship.xyz` or `www.northship.xyz`)
 6. Click **Deploy**
 
 ### Option B — Docker (if you prefer a container)
@@ -262,7 +262,7 @@ If you skipped GitHub setup during onboarding:
 
 Make sure your GitHub App's **Webhook URL** is set to:
 ```
-https://pilot.northship.dev/api/github/app/webhook
+https://pilot.northship.xyz/api/github/app/webhook
 ```
 
 ---

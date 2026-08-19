@@ -180,7 +180,7 @@ export function ControlPlaneDomainSettingsPanel({ open }: { open: boolean }) {
               value={hostname}
               onBlur={() => setHostname(normalizedHostname)}
               onChange={(event) => setHostname(event.target.value)}
-              placeholder="pilot.northship.dev"
+              placeholder="pilot.northship.xyz"
               inputMode="url"
               autoComplete="off"
             />

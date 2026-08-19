@@ -227,7 +227,7 @@ export function OnboardingPage() {
       activeStep === "root-domain" &&
       !isWildcardRootDomain(form.rootDomain)
     ) {
-      return "Root domain must be a wildcard hostname like *.pilot.northship.dev.";
+      return "Root domain must be a wildcard hostname like *.pilot.northship.xyz.";
     }
     if (activeStep === "backups") {
       const r2Fields = [

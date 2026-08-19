@@ -92,7 +92,7 @@ export function RootDomainSettingsPanel({ open }: { open: boolean }) {
   async function saveSettings(event: FormEvent) {
     event.preventDefault();
     if (!rootDomainUsesWildcard || !normalizedRootDomain) {
-      setError("Root domain must be a wildcard hostname like *.pilot.northship.dev.");
+      setError("Root domain must be a wildcard hostname like *.pilot.northship.xyz.");
       return;
     }
     setSaving(true);
@@ -180,13 +180,13 @@ export function RootDomainSettingsPanel({ open }: { open: boolean }) {
                 if (rootDomainUsesWildcard) setRootDomain(wildcardRootDomain(normalizedRootDomain));
               }}
               onChange={(event) => setRootDomain(event.target.value)}
-              placeholder="*.pilot.northship.dev"
+              placeholder="*.pilot.northship.xyz"
               required
               inputMode="url"
               autoComplete="off"
             />
             {rootDomain.trim() && !rootDomainUsesWildcard ? (
-              <p className="mt-2 font-mono text-[10px] leading-relaxed text-rose-300">Include the wildcard prefix, e.g. *.pilot.northship.dev.</p>
+              <p className="mt-2 font-mono text-[10px] leading-relaxed text-rose-300">Include the wildcard prefix, e.g. *.pilot.northship.xyz.</p>
             ) : (
               <p className="mt-2 font-mono text-[10px] leading-relaxed text-zinc-500">
                 Services will receive URLs like <span className="text-[#4FB8B2]">{"{slug}"}.{normalizedRootDomain || "your-domain.com"}</span>.

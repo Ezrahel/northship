@@ -24,7 +24,7 @@ It currently supports:
 On a fresh Ubuntu/Debian VPS, run:
 
 ```bash
-curl -fsSL https://get.northship.dev | sh
+curl -fsSL https://get.northship.xyz | sh
 ```
 
 The installer creates `/opt/northship`, clones this repository into `/opt/northship/source`, writes a production `.env`, builds Northship locally, and starts:
@@ -42,7 +42,7 @@ During onboarding you can set a dashboard domain, for example `pilot.example.com
 You can override installer defaults by passing environment variables to `sh`:
 
 ```bash
-curl -fsSL https://get.northship.dev | \
+curl -fsSL https://get.northship.xyz | \
   NORTHSHIP_PUBLIC_URL=https://pilot.example.com \
   NORTHSHIP_REPO_BRANCH=main \
   NORTHSHIP_PORT=4310 \

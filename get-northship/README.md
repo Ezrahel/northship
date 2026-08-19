@@ -3,10 +3,10 @@
 Tiny Node app for:
 
 ```bash
-curl -fsSL https://get.northship.dev | sh
+curl -fsSL https://get.northship.xyz | sh
 ```
 
-Deploy this directory anywhere that can serve `get.northship.dev`.
+Deploy this directory anywhere that can serve `get.northship.xyz`.
 
 The served installer clones `ezrahel/northship`, builds it on the VPS, runs the control plane with systemd, and keeps Docker Compose only for BuildKit and Caddy.
 
@@ -41,7 +41,7 @@ The app listens on `PORT`, defaulting to `3000`.
 Common options passed to `sh`:
 
 ```bash
-curl -fsSL https://get.northship.dev | \
+curl -fsSL https://get.northship.xyz | \
   NORTHSHIP_REPO_BRANCH=main \
   NORTHSHIP_PUBLIC_URL=https://pilot.example.com \
   sh

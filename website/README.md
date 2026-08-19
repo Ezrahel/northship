@@ -28,3 +28,22 @@ Astro includes `PUBLIC_*` variables at build time, so redeploy after changing th
 ```bash
 npm run build
 ```
+
+## Deployment
+
+This project is an Astro site under the website folder. For PXXL, build it from that folder instead of the repository root.
+
+Use these settings in PXXL:
+
+- Install command: `cd website && npm install`
+- Build command: `cd website && npm run build`
+- Output directory: `website/dist`
+- Node.js version: `20` or `22`
+
+If your project only exposes a single build command field, use:
+
+```bash
+cd website && npm install && npm run build
+```
+
+and set the publish/output directory to `website/dist`.
