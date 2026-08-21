@@ -58,6 +58,27 @@ curl -fsSL https://get.northship.xyz | \
 - `NORTHSHIP_PUBLIC_URL`: initial public URL written into the environment
 - `NORTHSHIP_PORT`: control-plane port, default `4310`
 
+## TLS
+
+Set `TLS_CERT_PATH` and `TLS_KEY_PATH` to serve over HTTPS directly:
+
+```bash
+TLS_CERT_PATH=/path/to/cert.pem TLS_KEY_PATH=/path/to/key.pem npm start
+```
+
+When using Docker:
+
+```bash
+docker run -p 3000:3000 \
+  -v /path/to/cert.pem:/certs/cert.pem:ro \
+  -v /path/to/key.pem:/certs/key.pem:ro \
+  -e TLS_CERT_PATH=/certs/cert.pem \
+  -e TLS_KEY_PATH=/certs/key.pem \
+  get-northship
+```
+
+If neither is set, the server runs plain HTTP. Place it behind a reverse proxy (Caddy, nginx, etc.) for TLS termination if preferred.
+
 ## Docker
 
 ```bash

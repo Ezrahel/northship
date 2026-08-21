@@ -1,4 +1,5 @@
-import { createServer } from "node:http";
+import { createServer as createHttpServer } from "node:http";
+import { createServer as createHttpsServer } from "node:https";
 import { readFile } from "node:fs/promises";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -51,7 +52,7 @@ function textHeaders(extra = {}) {
   };
 }
 
-const server = createServer(async (req, res) => {
+const handler = async (req, res) => {
   const method = req.method || "GET";
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
 
@@ -83,25 +84,50 @@ const server = createServer(async (req, res) => {
   }
 
   send(res, 404, textHeaders({ "Cache-Control": "no-store" }), "Not found\n", method);
-});
+};
 
-server.listen(port, "0.0.0.0", () => {
-  console.log(`get-northship listening on http://0.0.0.0:${port}`);
-});
+async function main() {
+  const tlsCertPath = process.env.TLS_CERT_PATH;
+  const tlsKeyPath = process.env.TLS_KEY_PATH;
 
-let shuttingDown = false;
+  let server;
+  let protocol;
 
-for (const signal of ["SIGINT", "SIGTERM"]) {
-  process.once(signal, () => {
-    if (shuttingDown) return;
-    shuttingDown = true;
+  if (tlsCertPath && tlsKeyPath) {
+    const [cert, key] = await Promise.all([
+      readFile(tlsCertPath, "utf8"),
+      readFile(tlsKeyPath, "utf8")
+    ]);
+    server = createHttpsServer({ cert, key }, handler);
+    protocol = "https";
+  } else {
+    server = createHttpServer(handler);
+    protocol = "http";
+  }
 
-    void shutdownAnalytics()
-      .catch(() => undefined)
-      .finally(() => {
-        server.close(() => process.exit(0));
-      });
-
-    setTimeout(() => process.exit(0), 2500).unref();
+  server.listen(port, "0.0.0.0", () => {
+    console.log(`get-northship listening on ${protocol}://0.0.0.0:${port}`);
   });
+
+  let shuttingDown = false;
+
+  for (const signal of ["SIGINT", "SIGTERM"]) {
+    process.once(signal, () => {
+      if (shuttingDown) return;
+      shuttingDown = true;
+
+      void shutdownAnalytics()
+        .catch(() => undefined)
+        .finally(() => {
+          server.close(() => process.exit(0));
+        });
+
+      setTimeout(() => process.exit(0), 2500).unref();
+    });
+  }
 }
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
