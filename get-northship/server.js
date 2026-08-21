@@ -34,11 +34,19 @@ function send(res, status, headers, body, method) {
   res.end(body);
 }
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": process.env.CORS_ALLOW_ORIGIN || "*",
+  "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Max-Age": "86400"
+};
+
 function textHeaders(extra = {}) {
   return {
     "Cache-Control": "public, max-age=300",
     "Content-Type": "text/plain; charset=utf-8",
     "X-Content-Type-Options": "nosniff",
+    ...corsHeaders,
     ...extra
   };
 }
@@ -47,8 +55,13 @@ const server = createServer(async (req, res) => {
   const method = req.method || "GET";
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
 
+  if (method === "OPTIONS") {
+    send(res, 204, textHeaders({ "Cache-Control": "no-store" }), "", method);
+    return;
+  }
+
   if (!["GET", "HEAD"].includes(method)) {
-    send(res, 405, textHeaders({ Allow: "GET, HEAD" }), "Method not allowed\n", method);
+    send(res, 405, textHeaders({ Allow: "GET, HEAD, OPTIONS" }), "Method not allowed\n", method);
     return;
   }
 

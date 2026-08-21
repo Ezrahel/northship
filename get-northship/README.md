@@ -15,6 +15,11 @@ The served installer clones `ezrahel/northship`, builds it on the VPS, runs the 
 - `GET /` serves `install.sh`
 - `GET /install.sh` serves `install.sh`
 - `GET /healthz` returns `ok`
+- `OPTIONS *` answers CORS preflights with `204`
+
+## CORS
+
+Every response carries permissive CORS headers (`Access-Control-Allow-Origin: *`), so browser-based pages (docs, dashboards) can fetch the installer script directly. Set `CORS_ALLOW_ORIGIN` to restrict the allowed origin.
 
 ## Analytics
 
