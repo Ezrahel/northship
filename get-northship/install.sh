@@ -111,7 +111,11 @@ install_railpack() {
   fi
 
   say "Installing Railpack..."
-  curl -fsSL https://railpack.com/install.sh | $SUDO sh -s -- --bin-dir /usr/local/bin
+  if command -v bash >/dev/null 2>&1; then
+    curl -fsSL https://railpack.com/install.sh | $SUDO bash -s -- --bin-dir /usr/local/bin
+  else
+    curl -fsSL https://railpack.com/install.sh | $SUDO sh -s -- --bin-dir /usr/local/bin
+  fi
 }
 
 random_secret() {
@@ -295,7 +299,19 @@ EOF
 start_runtime_services() {
   cd "$INSTALL_DIR"
   say "Starting BuildKit and Caddy..."
-  $SUDO docker compose up -d buildkit caddy
+  attempt=1
+  max_attempts=5
+  while [ "$attempt" -le "$max_attempts" ]; do
+    if $SUDO docker compose up -d buildkit caddy; then
+      return 0
+    fi
+    if [ "$attempt" -eq "$max_attempts" ]; then
+      fail "Failed to pull/start BuildKit and Caddy after $max_attempts attempts. Check network/Docker Hub connectivity and run: cd $INSTALL_DIR && sudo docker compose up -d"
+    fi
+    say "Retrying in 5s (attempt $attempt/$max_attempts)..."
+    sleep 5
+    attempt=$((attempt + 1))
+  done
 }
 
 start_northship() {
