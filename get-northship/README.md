@@ -3,7 +3,7 @@
 Tiny Node app for:
 
 ```bash
-curl -fsSL https://get.northship.xyz | sh
+curl -fsSL https://get.northship.xyz/install.sh | sh
 ```
 
 Deploy this directory anywhere that can serve `get.northship.xyz`.
@@ -46,7 +46,7 @@ The app listens on `PORT`, defaulting to `3000`.
 Common options passed to `sh`:
 
 ```bash
-curl -fsSL https://get.northship.xyz | \
+curl -fsSL https://get.northship.xyz/install.sh | \
   NORTHSHIP_REPO_BRANCH=main \
   NORTHSHIP_PUBLIC_URL=https://pilot.example.com \
   sh

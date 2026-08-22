@@ -19,7 +19,7 @@ Northship is meant to start from a fresh Ubuntu or Debian server where it can ow
 ## Run the Installer
 
 ```bash
-curl -fsSL https://get.northship.xyz | sh
+curl -fsSL https://get.northship.xyz/install.sh | sh
 ```
 
 The installer creates `/opt/northship`, clones Northship into `/opt/northship/source`, writes a production environment file, builds the control plane locally, and starts the host services.
@@ -43,7 +43,7 @@ If you later export an Northship migration bundle, the bundle includes logical N
 Set environment variables before `sh` to override defaults:
 
 ```bash
-curl -fsSL https://get.northship.xyz | \
+curl -fsSL https://get.northship.xyz/install.sh | \
   NORTHSHIP_PUBLIC_URL=https://pilot.example.com \
   NORTHSHIP_REPO_BRANCH=main \
   NORTHSHIP_PORT=4310 \

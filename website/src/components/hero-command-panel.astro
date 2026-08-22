@@ -2,7 +2,7 @@
 import Copy01Icon from "@hugeicons/core-free-icons/Copy01Icon";
 import CopyCheckIcon from "@hugeicons/core-free-icons/CopyCheckIcon";
 
-const command = "curl -fsSL https://get.northship.xyz | sh";
+const command = "curl -fsSL https://get.northship.xyz/install.sh | sh";
 const capabilities = ["apps", "postgres", "redis", "domains", "backups", "logs"];
 const toPathAttrs = (icon) => icon.filter(([tag]) => tag === "path").map(([, attrs]) => ({
   d: attrs.d,
